@@ -29,20 +29,29 @@ test('several workouts on one day aggregate sets and repetitions, with separate 
   assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','reps')[0].value"),54);
   assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','sets')[1].value"),3);
 });
-test('assistance uses minimum, body weight uses latest completed entry', () => {
+test('assistance uses repetition-weighted mean, body weight uses latest entry', () => {
   const run=runtime();run(`store.sessions=${JSON.stringify([b,c,a])}`);
-  assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].value"),25);
+  assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].value"),1735/54);
   assert.equal(run('bodyPoints(grouped(store.sessions))[0].value'),81.8);
   assert.equal(run('bodyPoints(grouped(store.sessions))[1].value'),81.5);
 });
-test('regular weight uses maximum; unchecked and skipped sets never count', () => {
+test('regular weight uses repetition-weighted mean; unchecked and skipped sets never count', () => {
   const run=runtime();const s=structuredClone(a);s.exercises[0].id='chest';s.exercises[0].sets[0].weight=200;s.exercises[0].sets[0].done=false;
   run(`store.sessions=${JSON.stringify([s])}`);
-  assert.equal(run("exercisePoints(grouped(store.sessions),'chest','weight')[0].value"),35);
+  assert.equal(run("exercisePoints(grouped(store.sessions),'chest','weight')[0].value"),615/19);
   assert.equal(run('doneSets(store.sessions[0]).length'),2);
   run('store.sessions[0].exercises[0].skipped=true');
   assert.equal(run('doneSets(store.sessions[0]).length'),0);
   assert.equal(run("exercisePoints(grouped(store.sessions),'chest','weight').length"),0);
+});
+test('daily exercise average weights repetitions and counts sets per workout', () => {
+ const run=runtime(),first=structuredClone(a),second=structuredClone(b);
+ first.exercises[0].sets=[{weight:100,reps:1,done:true},{weight:50,reps:8,done:true}];
+ second.exercises[0].sets=[{weight:50,reps:8,done:true}];
+ run(`store.sessions=${JSON.stringify([first,second])}`);
+ assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].value"),900/17);
+ assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].avgReps"),17/3);
+ assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].avgSets"),1.5);
 });
 test('decimal comma and zero weight are valid, malformed values and fractional reps are rejected', () => {
   const run=runtime();
