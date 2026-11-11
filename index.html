@@ -125,6 +125,8 @@ input[aria-invalid="true"]:focus-visible{border-color:var(--red);box-shadow:0 0 
 .weight-control input:placeholder-shown:not(:focus)+span{top:15px;font-size:13px}
 @media(max-width:680px){.weight-control{grid-column:2;order:-1;align-self:start}.weight-control input{height:40px;min-height:40px;padding:16px 10px 4px}.weight-control span{left:10px;top:3px;font-size:9px}.weight-control input:placeholder-shown:not(:focus)+span{top:10px;font-size:12px}}
 
+.routine-finish{margin-top:6px}
+@media(max-width:680px){.routine>div:last-child{padding-top:0;border-top:0;flex-basis:auto}.routine-finish>div{flex:1}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -233,7 +235,7 @@ function renderPrograms(){
  <div class="program-grid">${Object.entries(PROGRAMS).map(([id,p])=>{
  return `<article class="panel program ${last?.program===id?'last':''}" data-p="${id}"><div class="program-top"><div class="letter">${id}</div><div class="program-heading"><h2>${p.name}</h2>${last?.program===id?'<span class="pill mint">Прошлая</span>':id===next?'<span class="pill accent">Следующая</span>':''}</div></div><ul class="exercise-preview">${p.ex.map(k=>`<li><span>${EX[k].name}</span><small>${EX[k].n} × ${rangeText(EX[k])}</small></li>`).join('')}</ul><div class="program-bottom"><button data-start="${id}">Начать ${id} <span aria-hidden="true">→</span></button></div></article>`;
  }).join('')}</div>
- <div class="panel routine">${icon('walk')}<div><h3>В начале и в конце</h3><p>Беговая дорожка · по 10 минут</p></div><div><h3>После основных упражнений</h3><p>Пресс · 2 × 12–15 &nbsp; Гиперэкстензия · 2 × 12</p></div></div>
+ <div class="panel routine">${icon('walk')}<div><h3>В начале и в конце</h3><p>Беговая дорожка · по 10 минут</p></div></div><div class="panel routine routine-finish"><div><h3>После основных упражнений</h3><p>Пресс · 2 × 12–15 &nbsp; Гиперэкстензия · 2 × 12</p></div></div>
  <details class="panel rules"><summary>Правила и ограничения</summary><p>1 лёгкий разминочный подход перед первым упражнением. Отдых 90–120 секунд. Запас 2–3 повторения. Сначала увеличивай повторы, затем вес. Отдельных упражнений на руки нет.</p><p class="safety">До исчезновения спазма спины исключи гиперэкстензию и болезненные тяги. При сохраняющейся боли в колене — без жима ногами. До проверки прежних головокружений и свистящего дыхания — быстрая ходьба вместо бега.</p></details>`;
 }
 function start(program){
