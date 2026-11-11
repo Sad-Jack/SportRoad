@@ -111,6 +111,20 @@ html::-webkit-scrollbar-corner,dialog::-webkit-scrollbar-corner{background:#c4d0
 .programs-heading #settings-open{width:44px}
 @media(max-width:680px){.page-title.programs-heading .page-tools .pill,.programs-heading #settings-open{height:40px;min-height:40px}.programs-heading #settings-open{width:40px}.page-title.programs-heading .page-tools .pill{padding:0 10px;font-size:11px}}
 
+
+/* A subtle focus state keeps text fields clear without losing keyboard visibility. */
+input[type="text"]:focus-visible{outline:none;border-color:#75638d;box-shadow:0 0 0 1px #75638d55}
+.weight-stepper:focus-within{border-color:#75638d;box-shadow:0 0 0 1px #75638d55}
+.weight-stepper input[type="text"]:focus-visible{outline:none;border-color:transparent;box-shadow:none}
+.weight-stepper:has(input[aria-invalid="true"]){border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
+.set-row>input[data-field="reps"]:focus-visible{outline:none;border-color:#75638d;box-shadow:0 1px 0 #75638d}
+input[aria-invalid="true"]:focus-visible{border-color:var(--red);box-shadow:0 0 0 1px var(--red)}
+.weight-control{display:block;position:relative;min-width:0}
+.weight-control input{width:100%;height:52px;min-height:52px;padding:21px 12px 6px;font-size:16px}
+.weight-control span{position:absolute;left:12px;top:6px;font-size:10px;color:var(--muted);pointer-events:none;transition:top .12s,font-size .12s}
+.weight-control input:placeholder-shown:not(:focus)+span{top:15px;font-size:13px}
+@media(max-width:680px){.weight-control{grid-column:2;order:-1;align-self:start}.weight-control input{height:40px;min-height:40px;padding:16px 10px 4px}.weight-control span{left:10px;top:3px;font-size:9px}.weight-control input:placeholder-shown:not(:focus)+span{top:10px;font-size:12px}}
+
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -245,7 +259,7 @@ function renderWorkout(){
  return `<div class="page-title"><div><div class="eyebrow">Тренировка ${s.program} · ${dayLabel(s.date)}</div><h1>${PROGRAMS[s.program].name}</h1></div><div class="page-tools"><button class="finish-top" data-action="finish">Завершить</button></div></div>
  <div class="work-layout"><div class="work-main">${runCard(s,'before')}${s.exercises.map((e,i)=>exerciseCard(e,i,s)).join('')}${runCard(s,'after')}<div class="finish-mobile"><button class="primary wide" data-action="finish">Завершить тренировку</button></div></div>
  <aside class="work-aside"><div class="panel work-summary"><div class="stat-line"><span class="muted">Подходы</span><strong id="work-count">${count} <small>/ ${total}</small></strong></div><div class="progress-track"><div class="progress-fill" id="work-progress" style="width:${total?count/total*100:0}%"></div></div><small id="save-label">Изменения сохраняются автоматически</small><button class="primary wide desktop-finish" style="margin-top:18px" data-action="finish">Завершить тренировку</button></div>
- <details class="panel session-meta" ${window.innerWidth>680?'open':''}><summary>Вес и дата</summary><div class="session-fields"><div class="two-fields"><label class="field">Дата тренировки<input type="date" id="session-date" value="${s.date}" max="${today()}" aria-label="Дата тренировки"></label><label class="field">Мой вес, кг<input type="text" inputmode="decimal" id="body-weight" data-session="bodyWeight" value="${s.bodyWeight??''}" placeholder="—" autocomplete="off"></label></div></div></details>
+ <label class="weight-control"><input type="text" inputmode="decimal" id="body-weight" data-session="bodyWeight" value="${s.bodyWeight??''}" placeholder=" " aria-label="Мой вес, кг" autocomplete="off"><span>Мой вес, кг</span></label>
  <div class="panel timer"><div><small>Отдых</small><div class="timer-time" id="timer-time">${Math.floor(store.settings.rest/60)}:${String(store.settings.rest%60).padStart(2,'0')}</div></div><div class="timer-controls"><button data-action="timer" id="timer-toggle">Старт</button><button data-action="timer-add" aria-label="Добавить 30 секунд">+30</button></div></div></aside></div>`;
 }
 function numericValue(value,kind){if(value.trim()==='')return null;const text=value.trim().replace(',','.');if(!/^\d+(\.\d+)?$/.test(text))return undefined;const n=Number(text),max=kind==='weight'?2000:kind==='bodyWeight'?500:kind==='pullups'?100:kind==='runSpeed'?40:kind==='runMinutes'?600:200,min=kind==='bodyWeight'||kind==='reps'?1:kind==='runSpeed'||kind==='runMinutes'?0.1:0;if(!finite(n,min,max)||((kind==='reps'||kind==='pullups')&&!Number.isInteger(n)))return undefined;return n}
@@ -255,7 +269,7 @@ function markDone(id,i){
  if(hasInvalid())return;
  const e=store.active.exercises.find(e=>e.id===id),set=e.sets[i];
  if(!set.done&&(set.weight===null||set.reps===null)){toast('Укажи вес и повторы. Без дополнительного веса — 0 кг.');$(`[data-ex="${id}"][data-set="${i}"][data-field="${set.weight===null?'weight':'reps'}"]`).focus();return}
- set.done=!set.done;if(set.done)store.active.restUntil=Date.now()+store.settings.rest*1000;
+ set.done=!set.done;
  if(!save())return;
  const row=$(`[data-row="${id}-${i}"]`);row.classList.toggle('done',set.done);const b=row.querySelector('.set-check');b.setAttribute('aria-pressed',String(set.done));b.setAttribute('aria-label',(set.done?'Снять отметку':'Отметить подход')+' '+(i+1)+': '+EX[id].name);refreshProgress();updateTimer();
 }
@@ -367,7 +381,6 @@ $('#app').addEventListener('change',event=>{
  if(el.id==='exercise-select'){exerciseChoice=el.value;render();return}if(el.id==='metric-select'){metricChoice=el.value;render();return}
  if(!store.active)return;
  if(el.dataset.check){store.active[el.dataset.check]=el.checked;document.querySelectorAll('[data-check="'+el.dataset.check+'"]').forEach(input=>input.checked=el.checked);save()}
- if(el.id==='session-date'){const valid=validDay(el.value)&&el.value<=today();el.setAttribute('aria-invalid',String(!valid));if(valid){store.active.date=el.value;save()}else toast('Выбери сегодняшнюю или прошедшую дату.')}
 });
 $('#app').addEventListener('click',event=>{
  const b=event.target.closest('button,[data-point]');if(!b)return;
@@ -392,6 +405,13 @@ $('#settings-open').onclick=settings;$('#export-data').onclick=exportData;$('#im
 $('#rest-setting').onchange=e=>{store.settings.rest=Number(e.target.value);save()};
 $('#reset-data').onclick=()=>ask('Удалить весь дневник?','Все тренировки и текущий прогресс будут удалены из этого браузера. Сначала сделай экспорт, если хочешь сохранить копию.','Удалить всё',()=>{try{localStorage.removeItem(KEY);persisted=null;store=fresh();blocked=false;$('#storage-error').hidden=true;$('#settings').close();switchTab('programs');toast('Дневник очищен.')}catch(e){toast('Не удалось удалить данные.')}});
 $('#record').addEventListener('click',event=>{if(event.target.id==='save-record')saveRecord();if(event.target.id==='delete-record'){const id=$('#record').dataset.id;ask('Удалить эту тренировку?','Она исчезнет из истории и графиков. Другие тренировки этого дня сохранятся.','Удалить',()=>{store.sessions=store.sessions.filter(s=>s.id!==id);if(save()){$('#record').close();render();toast('Тренировка удалена.')}})}});
+// Place the caret at the end on entry while allowing a later tap to reposition it.
+const firstTextTap=new WeakSet();
+function textInput(el){return el instanceof HTMLInputElement&&el.type==='text'}
+function caretToEnd(el){if(document.activeElement===el&&el.value.length)el.setSelectionRange(el.value.length,el.value.length)}
+document.addEventListener('pointerdown',event=>{const el=event.target;if(textInput(el)&&document.activeElement!==el)firstTextTap.add(el)});
+document.addEventListener('focusin',event=>{const el=event.target;if(textInput(el))requestAnimationFrame(()=>caretToEnd(el))});
+document.addEventListener('click',event=>{const el=event.target;if(textInput(el)&&firstTextTap.has(el)){firstTextTap.delete(el);caretToEnd(el)}});
 window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)return;try{const raw=localStorage.getItem(KEY);store=raw?validate(JSON.parse(raw)):fresh();persisted=raw;blocked=false;document.querySelectorAll('dialog[open]').forEach(d=>d.close());render();toast('История обновлена из другой вкладки.')}catch(e){blocked=true;storageError('В другой вкладке появились нечитаемые данные. Сделай экспорт и восстанови дневник.')}});
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(tab==='analytics'&&!document.querySelector('dialog[open]'))render()},150)});
 let knownDay=today();function checkDay(){if(knownDay!==today()){knownDay=today();if(!store.active&&!document.querySelector('dialog[open]'))render()}}
