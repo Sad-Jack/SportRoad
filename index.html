@@ -41,6 +41,36 @@
  .mobile-cardio{display:flex;font-size:12px;border-top:1px solid var(--border);margin-top:10px;padding-top:8px}
 }
 @media(max-width:680px){.programs-heading{gap:8px;align-items:center}.programs-heading>div:first-child{min-width:0}.programs-heading h1{font-size:24px;line-height:1.2}.analytics-heading .page-tools{margin-left:auto}}
+
+/* Unified surfaces and compact controls for the training journal. */
+:root{--bg:#aebed0;--panel:#dce5ef;--field:#cbd7e5;--dialog:#d0dce9;--border:#60738c38;--purple:#665284;--mint:#527f61;--active:#7a6a9820;--shadow:#40567425}
+.sky{background:radial-gradient(ellipse at 50% 0%,#d2deeb,transparent 65%),linear-gradient(155deg,#b6c5d6,#a7bbcb)}
+.panel{border-color:#ffffff55;box-shadow:0 8px 20px var(--shadow);border-radius:20px}
+.program{padding:18px}.program.last{box-shadow:inset 0 3px var(--mint),0 8px 20px var(--shadow)}
+.program-top{gap:12px;margin-bottom:10px}.program .program-heading h2{font-size:17px}
+.letter{background:#77648f1e;color:var(--purple);border-color:#77648f30;border-radius:13px}
+.program[data-p="B"] .letter{background:#5792711c;border-color:#57927138}.program[data-p="C"] .letter{background:#ac8a581a}
+.exercise-preview{margin-bottom:12px}.exercise-preview li{padding:8px 0;border-color:#63758b35}
+.program-bottom button{background:#75639020;border-color:#7563902c;color:var(--text);font-weight:500}
+.program-bottom button:hover{background:#75639030}
+.nav{background:var(--dialog)}.nav button.active{background:#796a981a;border-color:#75638d;color:var(--purple)}
+.exercise{padding:18px}.exercise-heading{margin-bottom:12px}.exercise-heading h3{font-weight:650}
+.set-number{background:#a4b6c830;border-radius:10px;padding:8px 0;color:var(--text);font-weight:600}
+.set-row input{background:#ccd8e5;border-color:#9bacbf70;box-shadow:inset 0 1px 3px #60758b12;font-weight:600}
+.set-check{background:#c6d4e2;border-color:#8fa4b8}.set-row.done .set-check{background:var(--mint);border-color:var(--mint);color:#fff}
+.timer{border-color:#ffffff55}.timer-time{font-weight:650}
+.metrics{gap:0;border-radius:20px;background:var(--panel);border:1px solid #ffffff55;box-shadow:0 8px 20px var(--shadow);overflow:hidden}
+.metric{border:0;border-right:1px solid var(--border);border-radius:0;box-shadow:none;background:transparent}.metric:last-child{border-right:0}.metric strong{font-size:25px}
+.chart-card{box-shadow:0 8px 20px var(--shadow)}.chart-controls select{background:#cbd8e5}.chart-point{stroke:var(--panel)}
+@media(max-width:680px){
+ .program-grid{gap:10px}.program{padding:15px}.program-top{margin-bottom:10px}.program .letter{width:42px;height:42px}
+ .exercise-preview{margin-bottom:12px}.exercise-preview li{padding:7px 0}.program-bottom button{min-height:44px}
+ .nav{border:1px solid #ffffff55;border-radius:18px 18px 0 0}.nav button.active{box-shadow:inset 0 0 0 1px #75638d}
+ .exercise{padding:15px}.exercise-heading{margin-bottom:10px}.set-row input,.set-check{height:44px;min-height:44px}.set-row{margin-top:7px}
+ .set-number{padding:7px 0}.metrics{grid-template-columns:repeat(2,1fr);gap:0;margin-bottom:14px}.metric{padding:14px 16px}.metric:nth-child(2){border-right:0}.metric:nth-child(-n+2){border-bottom:1px solid var(--border)}
+ .chart-grid{gap:12px}.chart-card{padding:17px}.history{margin-top:18px}
+}
+
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -203,7 +233,9 @@ function chart(points,{color='var(--purple)',unit='',bars=false,empty='Посл�
  const x=i=>span?left+12+(times[i]-first)/span*(iw-24):left+iw/2,y=v=>top+ih-(v-min)/(max-min)*ih;
  const ticks=Array.from({length:4},(_,i)=>{const val=min+(max-min)*i/3;const yy=y(val);return `<line x1="${left}" x2="${w-right}" y1="${yy}" y2="${yy}" stroke="var(--border)"/><text x="${left-10}" y="${yy+4}" text-anchor="end">${fmt(Math.round(val*10)/10)}</text>`}).join('');
  const gap=times.length>1?Math.min(...times.slice(1).map((t,i)=>(t-times[i])/span*(iw-24))):40;
- const path=bars?'':`<path d="${points.map((p,i)=>(i?'L':'M')+x(i)+','+y(p.value)).join(' ')}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`;
+ const line=points.map((p,i)=>(i?'L':'M')+x(i)+','+y(p.value)).join(' ');
+ const area=points.length>1&&!bars?`<path d="${line} L${x(points.length-1)},${top+ih} L${x(0)},${top+ih} Z" fill="${color}" opacity=".12"/>`:'';
+ const path=bars?'':`${area}<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`;
  const marks=points.map((p,i)=>{const label=`${dayLabel(p.date,true)}: ${fmt(p.value)}${unit?' '+unit:''}`;return `${bars?`<rect x="${x(i)-Math.max(2,Math.min(gap*.6,24))/2}" y="${y(p.value)}" width="${Math.max(2,Math.min(gap*.6,24))}" height="${Math.max(1,top+ih-y(p.value))}" fill="${color}" opacity=".7" rx="2"/>`:''}<circle tabindex="0" role="button" aria-label="${esc(label)}" data-point="${esc(label)}" cx="${x(i)}" cy="${y(p.value)}" r="${bars?4:5}" class="chart-point" style="fill:${color}"><title>${esc(label)}</title></circle>`}).join('');
  const labelIds=[...new Set([0,Math.round((points.length-1)/2),points.length-1])];
  const labels=labelIds.map(i=>`<text x="${x(i)}" y="${h-8}" text-anchor="${i===0&&points.length>1?'start':i===points.length-1&&points.length>1?'end':'middle'}">${dayLabel(points[i].date)}</text>`).join('');
@@ -216,9 +248,9 @@ function renderAnalytics(){
  const selected=EX[exerciseChoice],points=exercisePoints(groups,exerciseChoice,metricChoice),unit=metricChoice==='weight'?'кг':metricChoice==='reps'?'повт.':'подх.';
  return `<div class="page-title analytics-heading"><div><div class="eyebrow">Каждый день в зачёт</div><h1>Твой прогресс</h1></div><div class="page-tools"><div class="segmented" aria-label="Период аналитики">${[['30','30 дней'],['90','90 дней'],['all','Всё время']].map(([v,l])=>`<button data-period="${v}" class="${period===v?'active':''}" aria-pressed="${period===v}">${l}</button>`).join('')}</div></div></div>
  <div class="metrics"><div class="panel metric"><span>Тренировки</span><strong>${sessions.length}</strong></div><div class="panel metric"><span>Активные дни</span><strong>${groups.length}</strong></div><div class="panel metric"><span>Подходы</span><strong>${count}</strong></div><div class="panel metric"><span>Последний вес</span><strong>${weights.length?fmt(weights.at(-1).value):'—'} <small>кг</small></strong></div></div>
- <div class="chart-grid"><section class="panel chart-card full"><div class="section-heading"><h2>Упражнения</h2><div class="chart-controls"><select id="exercise-select" aria-label="Упражнение для графика">${Object.entries(EX).map(([id,e])=>`<option value="${id}" ${id===exerciseChoice?'selected':''}>${e.name}</option>`).join('')}</select><select id="metric-select" aria-label="Показатель графика"><option value="weight" ${metricChoice==='weight'?'selected':''}>${selected.help?'Помощь, кг':'Вес, кг'}</option><option value="reps" ${metricChoice==='reps'?'selected':''}>Повторы за день</option><option value="sets" ${metricChoice==='sets'?'selected':''}>Подходы за день</option></select></div></div>${chart(points,{unit,wide:true,zero:metricChoice!=='weight',bars:metricChoice==='sets',empty:'Отметь подходы в этом упражнении — здесь появится прогресс.'})}<p class="chart-note">${metricChoice==='weight'?(selected.help?'Минимальная помощь за день. Меньше помощи — меньше поддержки.':'Максимальный вес в выполненном подходе за день.'):'Сумма по всем тренировкам за день.'}</p></section>
+ <div class="chart-grid"><section class="panel chart-card full"><div class="section-heading"><h2>Упражнения</h2><div class="chart-controls"><select id="exercise-select" aria-label="Упражнение для графика">${Object.entries(EX).map(([id,e])=>`<option value="${id}" ${id===exerciseChoice?'selected':''}>${e.name}</option>`).join('')}</select><select id="metric-select" aria-label="Показатель графика"><option value="weight" ${metricChoice==='weight'?'selected':''}>${selected.help?'Помощь, кг':'Вес, кг'}</option><option value="reps" ${metricChoice==='reps'?'selected':''}>Повторы за день</option><option value="sets" ${metricChoice==='sets'?'selected':''}>Подходы за день</option></select></div></div>${chart(points,{color:'var(--mint)',unit,wide:true,zero:metricChoice!=='weight',bars:metricChoice==='sets',empty:'Отметь подходы в этом упражнении — здесь появится прогресс.'})}<p class="chart-note">${metricChoice==='weight'?(selected.help?'Минимальная помощь за день. Меньше помощи — меньше поддержки.':'Максимальный вес в выполненном подходе за день.'):'Сумма по всем тренировкам за день.'}</p></section>
  <section class="panel chart-card"><div class="section-heading"><h2>Активность по дням</h2><span class="pill">Подходы</span></div>${chart(groups.map(([date,ss])=>({date,value:ss.reduce((n,s)=>n+doneSets(s).length,0)})),{color:'var(--mint)',bars:true,zero:true,unit:'подх.'})}<p class="chart-note">Все тренировки одного дня складываются.</p></section>
- <section class="panel chart-card"><div class="section-heading"><h2>Вес тела</h2><span class="pill">кг</span></div>${chart(weights,{color:'var(--gold)',unit:'кг',empty:'Добавь свой вес во вкладке «Тренировка».'})}<p class="chart-note">Последняя запись за день, без усреднения.</p></section>
+ <section class="panel chart-card"><div class="section-heading"><h2>Вес тела</h2><span class="pill">кг</span></div>${chart(weights,{color:'var(--purple)',unit:'кг',empty:'Добавь свой вес во вкладке «Тренировка».'})}<p class="chart-note">Последняя запись за день, без усреднения.</p></section>
  <section class="panel chart-card full"><div class="section-heading"><h2>Цель — 10 подтягиваний</h2><span class="pill mint">Без помощи</span></div><div class="goal-number">${best??'—'} <small>/ 10</small></div><div class="pullup-track" aria-hidden="true">${Array.from({length:10},(_,i)=>`<i class="${best!==null&&i<best?'on':''}"></i>`).join('')}</div><p class="chart-note">${best===null?'Запиши результат во время тренировки.':'Лучший подход за выбранный период.'}</p>${pullups.length?chart(grouped(pullups).map(([date,ss])=>({date,value:Math.max(...ss.map(s=>s.pullups))})),{color:'var(--mint)',unit:'повт.',zero:true,wide:true}):''}</section></div>
  <section class="history"><div class="section-heading"><h2>История тренировок</h2><small>${sessions.length} за период</small></div>${groups.length?[...groups].reverse().map(([date,ss])=>`<div class="panel day-group"><div class="day-title"><span>${dayLabel(date,true)}</span><span>${ss.length} трен. · ${ss.reduce((n,s)=>n+doneSets(s).length,0)} подх.</span></div>${[...ss].sort((a,b)=>b.finishedAt-a.finishedAt).map(s=>`<button class="history-row" data-record="${esc(s.id)}"><span class="letter">${s.program}</span><span class="desc">${PROGRAMS[s.program].name}<small>${new Date(s.startedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${s.bodyWeight!==null?' · '+fmt(s.bodyWeight)+' кг':''}</small></span><span class="count">${doneSets(s).length} подх.</span>${icon('arrow')}</button>`).join('')}</div>`).join(''):'<div class="panel empty"><h2>Здесь будет твоя история</h2><p>Заверши первую тренировку, чтобы увидеть результаты.</p><button data-go="programs">К программам</button></div>'}</section>`;
 }
