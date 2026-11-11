@@ -135,3 +135,89 @@ test('gravitron chart puts lower assistance higher and retains exact kg', () => 
  const points=[...svg.matchAll(/cx="([\d.]+)" cy="([\d.]+)"/g)];
  assert.equal(points.length,2);assert.ok(Number(points[1][2])<Number(points[0][2]));assert.match(svg,/20 кг/);assert.match(svg,/40 кг/);
 });
+
+test('legacy backups gain the original editable program and keep their history', () => {
+ const run=runtime(),data={version:1,sessions:[a],active:null,settings:{rest:90}};
+ run(`const migrated=validate(${JSON.stringify(data)})`);
+ assert.equal(run("migrated.plan.order.join(',')"),'A,B,C');
+ assert.equal(run("migrated.plan.before.join(',')"),'run:before');
+ assert.equal(run("migrated.plan.after.join(',')"),'abs,hyper,run:after');
+ assert.equal(run('migrated.sessions[0].exercises[0].sets[0].weight'),40);
+});
+test('custom days, shared exercises and workout snapshots survive validation', () => {
+ const run=runtime();run(`const p=defaultPlan();p.exercises.custom={name:'Тяга',n:2,min:6,max:8,help:true};p.programs.customDay={name:'Новый день',ex:['custom']};p.order.unshift('customDay');p.before.push('pulldown');p.programs.A.ex=p.programs.A.ex.filter(x=>x!=='pulldown');`);
+ assert.equal(run('validatePlan(p).order[0]'),'customDay');
+ const custom=structuredClone(a);custom.program='customDay';custom.programName='Новый день';custom.programLabel='A';custom.exercises=[{id:'custom',skipped:false,definition:{name:'Тяга',n:2,min:6,max:8,help:true},sets:[{weight:30,reps:6,done:true},{weight:25,reps:7,done:true}]}];custom.layout=['run:before','pulldown','custom','abs','hyper','run:after'];
+ // A workout layout must reference exactly its own exercise records.
+ run(`const example=${JSON.stringify(custom)};example.layout=['run:before','custom','run:after'];const imported=validate({version:1,sessions:[example],active:null,settings:{rest:90},plan:p});`);
+ assert.equal(run('imported.sessions[0].exercises[0].definition.help'),true);
+ assert.equal(run('imported.sessions[0].programName'),'Новый день');
+ assert.equal(run('imported.sessions[0].layout.length'),3);
+});
+test('plan validation rejects duplicate workout positions and malformed definitions', () => {
+ const run=runtime();run('const p=defaultPlan()');
+ for(const mutation of ["p.order.push('A')","p.before.push('abs')","p.exercises.gravitron.n=0","p.exercises.gravitron.help='yes'","p.programs.A.name=''","p.after.push('run:before')","p.order.push('missing')"]){
+  assert.throws(()=>{run('Object.assign(p,defaultPlan())');run(mutation);run('validatePlan(p)')});
+ }
+});
+test('historical definitions and names do not change after editing the plan', () => {
+ const run=runtime();run(`const p=defaultPlan();const old=${JSON.stringify(structuredClone(a))};freezeLegacy(old,p);p.programs.A.name='Другая спина';p.exercises.gravitron.name='Переименованное';p.exercises.gravitron.n=2;`);
+ assert.equal(run('old.programName'),'Спина и подтягивания');
+ assert.equal(run('old.exercises[0].definition.name'),'Гравитрон');
+ assert.equal(run('old.exercises[0].definition.n'),3);
+ assert.equal(run('validate({version:1,sessions:[old],active:null,settings:{rest:90},plan:p}).sessions[0].exercises[0].sets.length'),3);
+});
+
+test('import separates opposite weight meanings and repeat import reuses the same series', () => {
+ const run=runtime();
+ run(`const local=validate({version:1,sessions:[${JSON.stringify(a)}],active:null,settings:{rest:90}});const remote=validate({version:1,sessions:[${JSON.stringify(b)}],active:null,settings:{rest:90}});remote.plan.exercises.gravitron.help=false;const combined=mergeBackup(local,remote,true);`);
+ assert.equal(run('combined.sessions.length'),2);
+ assert.equal(run('combined.plan.exercises.gravitron.help'),true);
+ assert.equal(run('combined.sessions[0].exercises[0].id'),'gravitron');
+ assert.notEqual(run('combined.sessions[1].exercises[0].id'),'gravitron');
+ assert.equal(run('combined.plan.exercises[combined.sessions[1].exercises[0].id].help'),false);
+ assert.equal(run('combined.plan.exercises[combined.sessions[1].exercises[0].id].sourceId'),'gravitron');
+ run('const repeated=mergeBackup(combined,remote,true)');
+ assert.equal(run('repeated.sessions.length'),2);
+ assert.equal(run('repeated.sessions[1].exercises[0].id'),run('combined.sessions[1].exercises[0].id'));
+ assert.equal(run('repeated.plan.programs.A.ex[0]'),run('combined.plan.programs.A.ex[0]'));
+});
+test('old backup imports do not replace the current program and preserve the active workout', () => {
+ const run=runtime();
+ run(`const local=validate({version:1,sessions:[],active:null,settings:{rest:90}});local.plan.programs.A.name='Своя программа';local.plan.order=['C','A'];const remote=validate({version:1,sessions:[${JSON.stringify(a)}],active:null,settings:{rest:120}});const combined=mergeBackup(local,remote,false);`);
+ assert.equal(run('combined.plan.order.join()'),'C,A');
+ assert.equal(run('combined.plan.programs.A.name'),'Своя программа');
+ assert.equal(run('combined.sessions[0].programName'),'Спина и подтягивания');
+ assert.equal(run('combined.settings.rest'),90);
+});
+
+test('an empty edited program remains valid and its analytics handles no exercises', () => {
+ const run=runtime();
+ run('const empty=defaultPlan();empty.order=[];empty.before=[];empty.after=[];store.plan=validatePlan(empty);store.sessions=[];store.active=null;installPlan(store.plan)');
+ assert.equal(run('analyticsExerciseIds().length'),0);
+ assert.equal(run('nextProgram()'),null);
+ assert.doesNotMatch(run('renderPrograms()'),/class="panel routine/);
+ assert.doesNotThrow(()=>run('renderAnalytics()'));
+});
+test('a run-only workout and its layout remain valid after reload', () => {
+ const run=runtime(),data={version:1,sessions:[],active:null,settings:{rest:90}};
+ run(`const data=${JSON.stringify(data)};data.plan=defaultPlan();data.plan.programs.A.ex=[];data.plan.after=[];const draft={...${JSON.stringify(a)},id:'run-only',finishedAt:null,exercises:[],layout:['run:before'],running:{before:{speed:8,minutes:10},after:{speed:null,minutes:null}}};data.active=draft;const restored=validate(data);`);
+ assert.equal(run('restored.active.exercises.length'),0);
+ assert.equal(run('restored.active.layout[0]'),'run:before');
+ assert.equal(run('restored.active.running.before.speed'),8);
+});
+test('saved workouts reject a snapshot inconsistent with their sets or layout', () => {
+ const run=runtime(),data={version:1,sessions:[structuredClone(a)],active:null,settings:{rest:90}};
+ data.sessions[0].exercises[0].definition={name:'Гравитрон',n:2,min:8,max:12,help:true};
+ assert.throws(()=>run(`validate(${JSON.stringify(data)})`));
+ data.sessions[0].exercises[0].definition.n=3;data.sessions[0].layout=['run:before'];
+ assert.throws(()=>run(`validate(${JSON.stringify(data)})`));
+});
+
+test('plan references and workout identifiers must be strings', () => {
+ const run=runtime();
+ run("const p=defaultPlan();p.programs['1']={name:'Day',ex:[]};p.exercises['2']={name:'Exercise',n:1,min:1,max:1,help:false}");
+ assert.throws(()=>run('p.order=[1];validatePlan(p)'));
+ assert.throws(()=>run("p.order=['1'];p.before=[2];validatePlan(p)"));
+ assert.throws(()=>run("p.before=[];p.programs['1'].ex=[2];validatePlan(p)"));
+});
