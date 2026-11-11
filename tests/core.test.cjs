@@ -130,10 +130,10 @@ test('running data is optional for old backups and invalid values are rejected',
  assert.equal(run(`validate(${JSON.stringify(data)}).sessions[0].running.before.speed`),8.5);
  for(const value of [-1,0,41,'fast']){data.sessions[0].running.before.speed=value;assert.throws(()=>run(`validate(${JSON.stringify(data)})`))}
 });
-test('gravitron chart puts lower assistance higher and retains exact kg', () => {
+test('gravitron chart puts lower assistance higher and shows latest kg', () => {
  const run=runtime();const svg=run("chart([{date:'2026-11-10',value:40},{date:'2026-11-11',value:20}],{invert:true,unit:'кг'})");
- const points=[...svg.matchAll(/cx="([\d.]+)" cy="([\d.]+)"/g)];
- assert.equal(points.length,2);assert.ok(Number(points[1][2])<Number(points[0][2]));assert.match(svg,/20 кг/);assert.match(svg,/40 кг/);
+ const line=svg.match(/d="M[\d.]+,([\d.]+) L[\d.]+,([\d.]+)" fill="none"/);
+ assert.ok(line);assert.ok(Number(line[2])<Number(line[1]));assert.match(svg,/20 кг/);assert.doesNotMatch(svg,/<circle/);
 });
 
 test('legacy backups gain the original editable program and keep their history', () => {

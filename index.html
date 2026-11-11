@@ -483,7 +483,7 @@ function chart(points,{color='var(--purple)',unit='',bars=false,empty='Посл�
  const line=points.map((p,i)=>(i?'L':'M')+x(i)+','+y(p.value)).join(' ');
  const area=points.length>1&&!bars?`<path d="${line} L${x(points.length-1)},${top+ih} L${x(0)},${top+ih} Z" fill="${color}" opacity=".12"/>`:'';
  const path=bars?'':`${area}<path d="${line}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linejoin="round"/>`;
- const marks=points.map((p,i)=>{const label=`${dayLabel(p.date,true)}: ${fmt(p.value)}${unit?' '+unit:''}`;return `${bars?`<rect x="${x(i)-Math.max(2,Math.min(gap*.6,24))/2}" y="${y(p.value)}" width="${Math.max(2,Math.min(gap*.6,24))}" height="${Math.max(1,top+ih-y(p.value))}" fill="${color}" opacity=".7" rx="2"/>`:''}<circle tabindex="0" role="button" aria-label="${esc(label)}" data-point="${esc(label)}" cx="${x(i)}" cy="${y(p.value)}" r="${bars?4:5}" class="chart-point" style="fill:${color}"><title>${esc(label)}</title></circle>`}).join('');
+ const marks=bars?points.map((p,i)=>`<rect x="${x(i)-Math.max(2,Math.min(gap*.6,24))/2}" y="${y(p.value)}" width="${Math.max(2,Math.min(gap*.6,24))}" height="${Math.max(1,top+ih-y(p.value))}" fill="${color}" opacity=".7" rx="2"/>`).join(''):points.length===1?`<line x1="${x(0)-8}" x2="${x(0)+8}" y1="${y(points[0].value)}" y2="${y(points[0].value)}" stroke="${color}" stroke-width="2.5" stroke-linecap="round"/>`:'';
  const labelIds=[...new Set([0,Math.round((points.length-1)/2),points.length-1])];
  const labels=labelIds.map(i=>`<text x="${x(i)}" y="${h-8}" text-anchor="${i===0&&points.length>1?'start':i===points.length-1&&points.length>1?'end':'middle'}">${dayLabel(points[i].date)}</text>`).join('');
  return `<svg class="chart" viewBox="0 0 ${w} ${h}" role="group" aria-label="График по дням">${ticks}${path}${marks}${labels}</svg><div class="chart-tip" aria-live="polite">${dayLabel(points.at(-1).date)} · ${fmt(points.at(-1).value)} ${unit}</div>`;
@@ -565,8 +565,7 @@ $('#app').addEventListener('change',event=>{
  if(el.dataset.check){store.active[el.dataset.check]=el.checked;document.querySelectorAll('[data-check="'+el.dataset.check+'"]').forEach(input=>input.checked=el.checked);save()}
 });
 $('#app').addEventListener('click',event=>{
- const b=event.target.closest('button,[data-point]');if(!b)return;
- if(b.dataset.point){const card=b.closest('.chart-card');card.querySelector('.chart-tip').textContent=b.dataset.point;return}
+ const b=event.target.closest('button');if(!b)return;
  if(b.dataset.action==='edit-plan')return openPlanEditor();
  if(b.dataset.start)return start(b.dataset.start);
  if(b.dataset.go)return switchTab(b.dataset.go);
@@ -580,7 +579,6 @@ $('#app').addEventListener('click',event=>{
  if(b.dataset.action==='timer'){const s=store.active;s.restUntil=s.restUntil&&s.restUntil>Date.now()?null:Date.now()+store.settings.rest*1000;if(save())updateTimer()}
  if(b.dataset.action==='timer-add'){store.active.restUntil=Math.max(Date.now(),store.active.restUntil||Date.now()+store.settings.rest*1000)+30000;if(save())updateTimer()}
 });
-$('#app').addEventListener('keydown',event=>{if(event.target.dataset.point&&['Enter',' '].includes(event.key)){event.preventDefault();event.target.dispatchEvent(new MouseEvent('click',{bubbles:true}))}});
 document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{if(hasInvalid())return;switchTab(b.dataset.tab)});
 document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>$('#'+b.dataset.close).close());
 $('#confirm-ok').onclick=()=>{const action=confirmAction;confirmAction=null;$('#confirm').close();if(action)action()};
