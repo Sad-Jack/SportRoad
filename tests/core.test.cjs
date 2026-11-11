@@ -103,3 +103,35 @@ test('a completed workout without marked sets can be restored from a backup', ()
   assert.equal(run('doneSets(restored.sessions[0]).length'),0);
   assert.equal(run('grouped(restored.sessions)[0][1].length'),1);
 });
+
+test('streak counts unique days, accepts one- or two-day gaps and expires after two days', () => {
+ const run=runtime();
+ const dates=['2026-11-01','2026-11-03','2026-11-05','2026-11-05','2026-11-06'];
+ run(`const dated=${JSON.stringify(dates.map(date=>({date})))}`);
+ assert.equal(run("currentStreak(dated,'2026-11-06')"),4);
+ assert.equal(run("currentStreak(dated,'2026-11-08')"),4);
+ assert.equal(run("currentStreak(dated,'2026-11-09')"),0);
+ assert.equal(run("currentStreak(dated,'2026-11-04')"),2);
+ assert.equal(run("currentStreak([],'2026-11-06')"),0);
+ assert.equal(run("currentStreak([{date:'2026-01-01'},{date:'2025-12-30'}],'2026-01-02')"),2);
+});
+test('running aggregates complete segments by day and weights speed by duration', () => {
+ const run=runtime();const one={...structuredClone(a),running:{before:{speed:8,minutes:10},after:{speed:10,minutes:5}}};
+ const two={...structuredClone(b),running:{before:{speed:12,minutes:5},after:{speed:20,minutes:null}}};
+ run(`const rr=grouped(${JSON.stringify([one,two])})`);
+ assert.equal(run("runningPoints(rr,'minutes')[0].value"),20);
+ assert.equal(run("runningPoints(rr,'speed')[0].value"),9.5);
+ assert.equal(run("runningPoints(grouped([{}].map(x=>({date:'2026-11-10'}))),'speed').length"),0);
+});
+test('running data is optional for old backups and invalid values are rejected', () => {
+ const run=runtime(),data={version:1,sessions:[structuredClone(a)],active:null,settings:{rest:90}};
+ assert.equal(run(`validate(${JSON.stringify(data)}).sessions.length`),1);
+ data.sessions[0].running={before:{speed:8.5,minutes:10},after:{speed:null,minutes:null}};
+ assert.equal(run(`validate(${JSON.stringify(data)}).sessions[0].running.before.speed`),8.5);
+ for(const value of [-1,0,41,'fast']){data.sessions[0].running.before.speed=value;assert.throws(()=>run(`validate(${JSON.stringify(data)})`))}
+});
+test('gravitron chart puts lower assistance higher and retains exact kg', () => {
+ const run=runtime();const svg=run("chart([{date:'2026-11-10',value:40},{date:'2026-11-11',value:20}],{invert:true,unit:'кг'})");
+ const points=[...svg.matchAll(/cx="([\d.]+)" cy="([\d.]+)"/g)];
+ assert.equal(points.length,2);assert.ok(Number(points[1][2])<Number(points[0][2]));assert.match(svg,/20 кг/);assert.match(svg,/40 кг/);
+});
