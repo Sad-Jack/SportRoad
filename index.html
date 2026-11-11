@@ -188,7 +188,7 @@ input[aria-invalid="true"]:focus-visible{border-color:var(--red);box-shadow:0 0 
 <script>
 'use strict';
 const DEMO=typeof location!=='undefined'&&new URLSearchParams(location.search).get('demo')==='1';
-const KEY=DEMO?'sportroad.demo.v1':'sportroad.v1';
+const KEY=DEMO?'sportroad.demo.v2':'sportroad.v1';
 const ICONS={grip:'<circle cx="9" cy="5" r="1"/><circle cx="15" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="19" r="1"/><circle cx="15" cy="19" r="1"/>',chevron:'<path d="m7 10 5 5 5-5"/>',right:'<path d="m9 6 6 6-6 6"/>',back:'<path d="m14 6-6 6 6 6"/>',close:'<path d="M6 6l12 12M18 6 6 18"/>',dumbbell:'<path d="M4 9v6m4-9v12m8-12v12m4-9v6M8 12h8"/>',programs:'<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/>',workout:'<path d="m9 5 11 7-11 7z"/>',analytics:'<path d="M4 4v16h17M8 15l4-5 4 2 5-7"/>',settings:'<path d="M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z"/><circle cx="12" cy="12" r="3"/>',sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',moon:'<path d="M20 14A9 9 0 0 1 10 3a9 9 0 1 0 10 11Z"/>',finish:'<path d="M5 21V4m0 1c5-3 9 3 14 0v9c-5 3-9-3-14 0"/>' ,check:'<path d="m5 12 4 4 10-10"/>',arrow:'<path d="M5 12h14m-5-5 5 5-5 5"/>',walk:'<circle cx="14" cy="4" r="2"/><path d="m7 10 4-3 4 3 4 1M11 7l-1 7 5 3 1 5M10 14l-5 7"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'};
 const icon=n=>'<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">'+ICONS[n]+'</svg>';
 const EX={gravitron:{name:'Гравитрон',n:3,min:8,max:12,help:true},pulldown:{name:'Тяга верхнего блока к груди',n:2,min:10,max:12},row:{name:'Тяга нижнего блока к животу',n:2,min:10,max:12},chest:{name:'Жим от груди в тренажёре',n:3,min:10,max:12},fly:{name:'Сведение рук на грудь',n:2,min:12,max:12},shoulder:{name:'Жим плечами в тренажёре',n:2,min:10,max:12},legpress:{name:'Жим ногами',n:2,min:10,max:12},curl:{name:'Сгибание ног в тренажёре',n:2,min:12,max:12},abduction:{name:'Разведение ног в тренажёре',n:2,min:15,max:15},abs:{name:'Пресс в тренажёре',n:2,min:12,max:15},hyper:{name:'Гиперэкстензия',n:2,min:12,max:12}};
@@ -269,11 +269,16 @@ function validate(data){
 }
 function storageError(message){$('#storage-error').hidden=false;$('#storage-error').textContent=message}
 function demoData(){
- const data=fresh(),programs=['A','B','C'];
- for(let i=0;i<90;i++){
-  const date=new Date();date.setHours(12,0,0,0);date.setDate(date.getDate()-(178-i*2));const day=localDay(date),program=programs[i%3],start=date.getTime()+7*3600000,ids=[...data.plan.programs[program].ex,'abs','hyper'];
-  const exercises=ids.map(id=>{const e=data.plan.exercises[id],base={gravitron:58,pulldown:25,row:25,chest:20,fly:15,shoulder:15,legpress:60,curl:20,abduction:25,abs:15,hyper:0}[id],weight=id==='gravitron'?Math.max(5,base-Math.floor(i/8)*2.5):base+Math.floor(i/12)*2.5;return {id,skipped:false,definition:{...e},sets:Array.from({length:e.n},(_,j)=>({weight,reps:Math.min(e.max,e.min+(i+j)%3),done:true}))}});
-  data.sessions.push({id:'demo-'+i,program,date:day,startedAt:start,finishedAt:start+3600000,bodyWeight:Math.round((83-i*.045+Math.sin(i/4)*.4)*10)/10,pullups:null,before:true,after:true,warmup:true,restUntil:null,exercises,running:{before:{speed:Math.round((7+i*.01)*10)/10,minutes:10},after:{speed:Math.round((6.8+i*.01)*10)/10,minutes:10}},layout:['run:before',...ids,'run:after'],programName:data.plan.programs[program].name,programLabel:program});
+ const data=fresh(),programs=['A','B','C'];let seed=73921,workout=0;const rand=()=>{seed=(seed*16807)%2147483647;return (seed-1)/2147483646},round=(n,step=1)=>Math.round(n/step)*step;
+ const base={gravitron:57.5,pulldown:27.5,row:25,chest:22.5,fly:15,shoulder:12.5,legpress:60,curl:20,abduction:25,abs:15,hyper:0};
+ for(let offset=180;offset>=0;offset-=2){
+  if(offset>3&&rand()<.12)continue;
+  const date=new Date();date.setHours(12,0,0,0);date.setDate(date.getDate()-offset);const day=localDay(date),program=programs[workout%3],start=date.getTime()+Math.floor(rand()*4+5)*3600000,ids=[...data.plan.programs[program].ex,'abs','hyper'],progress=(180-offset)/180;
+  const exercises=ids.map(id=>{const e=data.plan.exercises[id],shift=(rand()<.12?-2.5:0),working=id==='gravitron'?Math.max(15,round(base[id]-progress*22.5+shift,2.5)):Math.max(0,round(base[id]+progress*(id==='legpress'?30:15)+shift,2.5)),skipped=rand()<.035;
+   return {id,skipped,definition:{...e},sets:Array.from({length:e.n},(_,j)=>{const fatigue=j===e.n-1&&rand()<.3?-1:0,reps=Math.max(1,e.min+Math.floor(rand()*(e.max-e.min+1))+fatigue),weight=Math.max(0,working+(j===0&&rand()<.18?(id==='gravitron'?2.5:-2.5):0));return {weight,reps,done:!skipped&&!(j===e.n-1&&rand()<.035)}})};
+  });
+  const run=()=>rand()<.13?{speed:null,minutes:null}:{speed:round(6.5+progress*.8+rand()*.9,.1),minutes:8+Math.floor(rand()*6)};
+  data.sessions.push({id:'demo-'+workout,program,date:day,startedAt:start,finishedAt:start+(45+Math.floor(rand()*26))*60000,bodyWeight:rand()<.18?null:round(83-progress*3.2+Math.sin(workout/5)*.45+(rand()-.5)*.7,.1),pullups:null,before:true,after:true,warmup:true,restUntil:null,exercises,running:{before:run(),after:run()},layout:['run:before',...ids,'run:after'],programName:data.plan.programs[program].name,programLabel:program});workout++;
  }return data;
 }
 try{persisted=localStorage.getItem(KEY);if(persisted)store=validate(JSON.parse(persisted));else if(DEMO){store=validate(demoData());persisted=JSON.stringify(store);localStorage.setItem(KEY,persisted)}if(DEMO)$('#demo-banner').hidden=false;}catch(e){blocked=true;storageError('Не удалось прочитать дневник. Запись приостановлена. Открой настройки и сохрани экспорт перед восстановлением.');}
