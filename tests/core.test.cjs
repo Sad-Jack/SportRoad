@@ -75,3 +75,21 @@ test('chart supports a single date, zero results, and empty data without invalid
     const svg=run(`chart(${JSON.stringify(data)},{zero:true})`);assert.ok(!/NaN|Infinity/.test(svg));
   }
 });
+
+test('legacy defaults enable hyperextension only in a draft and retain completed history', () => {
+  const run=runtime();
+  const hyper={id:'hyper',skipped:true,sets:[{weight:0,reps:12,done:false},{weight:0,reps:12,done:false}]};
+  const completed=structuredClone(a);completed.exercises.push(structuredClone(hyper));
+  const draft={...structuredClone(completed),id:'draft',finishedAt:null};
+  const data={version:1,sessions:[completed],active:draft,settings:{theme:'day',rest:120,hyper:false}};
+  run(`const migrated=validate(${JSON.stringify(data)})`);
+  assert.equal(run("migrated.active.exercises.find(e=>e.id==='hyper').skipped"),false);
+  assert.equal(run("migrated.sessions[0].exercises.find(e=>e.id==='hyper').skipped"),true);
+  assert.equal(run('migrated.settings.rest'),120);
+  assert.equal(run("JSON.stringify(migrated.sessions)"),JSON.stringify([completed]));
+  run("migrated.active.exercises.find(e=>e.id==='hyper').skipped=true");
+  assert.equal(run("validate(migrated).active.exercises.find(e=>e.id==='hyper').skipped"),true);
+  data.settings.hyper=true;
+  assert.equal(run(`validate(${JSON.stringify(data)}).active.exercises.find(e=>e.id==='hyper').skipped`),true);
+  assert.equal(run('validate(fresh()).settings.rest'),90);
+});
