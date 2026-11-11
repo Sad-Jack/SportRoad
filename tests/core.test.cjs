@@ -53,6 +53,17 @@ test('daily exercise average weights repetitions and counts sets per workout', (
  assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].avgReps"),17/3);
  assert.equal(run("exercisePoints(grouped(store.sessions),'gravitron','weight')[0].avgSets"),1.5);
 });
+test('empty workout ignores prefilled sets but preserves actual inputs and legacy drafts', () => {
+ const run=runtime(),draft=structuredClone(a);draft.finishedAt=null;draft.bodyWeight=null;draft.edited=false;
+ draft.exercises[0].sets.forEach(set=>set.done=false);
+ run(`const draft=${JSON.stringify(draft)}`);
+ assert.equal(run('hasWorkoutData(draft)'),false);
+ assert.equal(run('(draft.bodyWeight=75,hasWorkoutData(draft))'),true);
+ assert.equal(run('(draft.bodyWeight=null,draft.running={before:{speed:7,minutes:null},after:{speed:null,minutes:null}},hasWorkoutData(draft))'),true);
+ assert.equal(run('(draft.running.before.speed=null,draft.exercises[0].sets[0].done=true,hasWorkoutData(draft))'),true);
+ assert.equal(run('(draft.exercises[0].sets[0].done=false,draft.edited=true,hasWorkoutData(draft))'),true);
+ assert.equal(run('(delete draft.edited,hasWorkoutData(draft))'),true);
+});
 test('decimal comma and zero weight are valid, malformed values and fractional reps are rejected', () => {
   const run=runtime();
   assert.equal(run("numericValue('82,5','bodyWeight')"),82.5);
