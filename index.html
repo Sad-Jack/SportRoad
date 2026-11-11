@@ -88,6 +88,9 @@
 }
 @media(min-width:681px){.weight-stepper{display:contents}.weight-stepper button{display:none}}
 
+.finish-top{min-height:40px;padding:7px 10px;font-size:12px;white-space:nowrap;color:var(--purple)}
+.session-fields .two-fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+@media(max-width:360px){.finish-top{padding:6px;font-size:11px}.page-title:has(+.work-layout) h1{font-size:18px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
@@ -149,7 +152,6 @@ function validate(data){
    })};
   });
   for(const k of ['before','after','warmup'])if(typeof s[k]!=='boolean')throw Error('Некорректная отметка.');
-  if(!active&&!exercises.some(e=>!e.skipped&&e.sets.some(x=>x.done)))throw Error('В тренировке нет выполненных подходов.');
   return {id:s.id,program:s.program,date:s.date,startedAt:s.startedAt,finishedAt:active?null:s.finishedAt,bodyWeight:s.bodyWeight,pullups:s.pullups,before:s.before,after:s.after,warmup:s.warmup,restUntil:active&&finite(s.restUntil,0,1e14)?s.restUntil:null,exercises};
  }
  const sessions=data.sessions.map(s=>session(s,false)),active=data.active?session(data.active,true):null;
@@ -209,10 +211,10 @@ function renderWorkout(){
  const s=store.active;
  if(!s)return `<div class="page-title"><div><div class="eyebrow">Один подход за другим</div><h1>Тренировка</h1></div></div><div class="panel empty"><div class="empty-icon">${icon('dumbbell')}</div><h2>Начнём?</h2><p>Выбери программу. Вес и повторы из прошлой тренировки подставятся автоматически.</p><button class="primary" data-go="programs">Выбрать программу ${icon('arrow')}</button></div>`;
  const count=doneSets(s).length,total=s.exercises.reduce((n,e)=>n+(e.skipped?0:e.sets.length),0);
- return `<div class="page-title"><div><div class="eyebrow">Тренировка ${s.program} · ${dayLabel(s.date)}</div><h1>${PROGRAMS[s.program].name}</h1></div><div class="page-tools"><button class="icon-button quiet danger" data-action="discard" aria-label="Удалить текущую тренировку" title="Удалить текущую тренировку">×</button></div></div>
+ return `<div class="page-title"><div><div class="eyebrow">Тренировка ${s.program} · ${dayLabel(s.date)}</div><h1>${PROGRAMS[s.program].name}</h1></div><div class="page-tools"><button class="finish-top" data-action="finish">Завершить</button></div></div>
  <div class="work-layout"><div class="work-main"><div class="panel cardio cardio-before"><label class="checkline"><input type="checkbox" data-check="before" ${s.before?'checked':''}>${icon('walk')}Ходьба до тренировки <small>10 мин</small></label></div>${s.exercises.map((e,i)=>exerciseCard(e,i,s)).join('')}<div class="panel cardio"><label class="checkline"><input type="checkbox" data-check="after" ${s.after?'checked':''}>${icon('walk')}Ходьба после тренировки <small>10 мин</small></label></div><div class="finish-mobile"><button class="primary wide" data-action="finish">Завершить тренировку</button></div></div>
  <aside class="work-aside"><div class="panel work-summary"><div class="stat-line"><span class="muted">Подходы</span><strong id="work-count">${count} <small>/ ${total}</small></strong></div><div class="progress-track"><div class="progress-fill" id="work-progress" style="width:${total?count/total*100:0}%"></div></div><small id="save-label">Изменения сохраняются автоматически</small><button class="primary wide desktop-finish" style="margin-top:18px" data-action="finish">Завершить тренировку</button></div>
- <details class="panel session-meta" ${window.innerWidth>680?'open':''}><summary>Вес и дата</summary><div class="session-fields"><label class="field">Дата тренировки<input type="date" id="session-date" value="${s.date}" max="${today()}" aria-label="Дата тренировки"></label><div class="two-fields"><label class="field">Мой вес, кг<input type="text" inputmode="decimal" id="body-weight" data-session="bodyWeight" value="${s.bodyWeight??''}" placeholder="—" autocomplete="off"></label><label class="field">Подтягивания<input type="text" inputmode="numeric" data-session="pullups" value="${s.pullups??''}" placeholder="—" autocomplete="off"></label></div><small>Подтягивания — лучший подход без помощи. Цель: 10.</small></div></details>
+ <details class="panel session-meta" ${window.innerWidth>680?'open':''}><summary>Вес и дата</summary><div class="session-fields"><div class="two-fields"><label class="field">Дата тренировки<input type="date" id="session-date" value="${s.date}" max="${today()}" aria-label="Дата тренировки"></label><label class="field">Мой вес, кг<input type="text" inputmode="decimal" id="body-weight" data-session="bodyWeight" value="${s.bodyWeight??''}" placeholder="—" autocomplete="off"></label></div></div></details>
  <div class="panel timer"><div><small>Отдых</small><div class="timer-time" id="timer-time">${Math.floor(store.settings.rest/60)}:${String(store.settings.rest%60).padStart(2,'0')}</div></div><div class="timer-controls"><button data-action="timer" id="timer-toggle">Старт</button><button data-action="timer-add" aria-label="Добавить 30 секунд">+30</button></div></div></aside></div>`;
 }
 function numericValue(value,kind){if(value.trim()==='')return null;const text=value.trim().replace(',','.');if(!/^\d+(\.\d+)?$/.test(text))return undefined;const n=Number(text),max=kind==='weight'?2000:kind==='bodyWeight'?500:kind==='pullups'?100:200,min=kind==='bodyWeight'||kind==='reps'?1:0;if(!finite(n,min,max)||((kind==='reps'||kind==='pullups')&&!Number.isInteger(n)))return undefined;return n}
@@ -229,7 +231,6 @@ function markDone(id,i){
 function finish(){
  if(hasInvalid())return;
  const s=store.active,count=doneSets(s).length;
- if(!count)return toast('Отметь хотя бы один выполненный подход.');
  const total=s.exercises.reduce((n,e)=>n+(e.skipped?0:e.sets.length),0);
  ask('Завершить тренировку?',`${dayLabel(s.date,true)} · ${count} из ${total} подходов. В статистику попадут только отмеченные подходы.`,'Сохранить',()=>{
   s.finishedAt=Date.now();s.restUntil=null;store.sessions.push(s);store.active=null;
@@ -268,7 +269,7 @@ function renderAnalytics(){
  <div class="chart-grid"><section class="panel chart-card full"><div class="section-heading"><h2>Упражнения</h2><div class="chart-controls"><select id="exercise-select" aria-label="Упражнение для графика">${Object.entries(EX).map(([id,e])=>`<option value="${id}" ${id===exerciseChoice?'selected':''}>${e.name}</option>`).join('')}</select><select id="metric-select" aria-label="Показатель графика"><option value="weight" ${metricChoice==='weight'?'selected':''}>${selected.help?'Помощь, кг':'Вес, кг'}</option><option value="reps" ${metricChoice==='reps'?'selected':''}>Повторы за день</option><option value="sets" ${metricChoice==='sets'?'selected':''}>Подходы за день</option></select></div></div>${chart(points,{color:'var(--mint)',unit,wide:true,zero:metricChoice!=='weight',bars:metricChoice==='sets',empty:'Отметь подходы в этом упражнении — здесь появится прогресс.'})}<p class="chart-note">${metricChoice==='weight'?(selected.help?'Минимальная помощь за день. Меньше помощи — меньше поддержки.':'Максимальный вес в выполненном подходе за день.'):'Сумма по всем тренировкам за день.'}</p></section>
  <section class="panel chart-card"><div class="section-heading"><h2>Активность по дням</h2><span class="pill">Подходы</span></div>${chart(groups.map(([date,ss])=>({date,value:ss.reduce((n,s)=>n+doneSets(s).length,0)})),{color:'var(--mint)',bars:true,zero:true,unit:'подх.'})}<p class="chart-note">Все тренировки одного дня складываются.</p></section>
  <section class="panel chart-card"><div class="section-heading"><h2>Вес тела</h2><span class="pill">кг</span></div>${chart(weights,{color:'var(--purple)',unit:'кг',empty:'Добавь свой вес во вкладке «Тренировка».'})}<p class="chart-note">Последняя запись за день, без усреднения.</p></section>
- <section class="panel chart-card full"><div class="section-heading"><h2>Цель — 10 подтягиваний</h2><span class="pill mint">Без помощи</span></div><div class="goal-number">${best??'—'} <small>/ 10</small></div><div class="pullup-track" aria-hidden="true">${Array.from({length:10},(_,i)=>`<i class="${best!==null&&i<best?'on':''}"></i>`).join('')}</div><p class="chart-note">${best===null?'Запиши результат во время тренировки.':'Лучший подход за выбранный период.'}</p>${pullups.length?chart(grouped(pullups).map(([date,ss])=>({date,value:Math.max(...ss.map(s=>s.pullups))})),{color:'var(--mint)',unit:'повт.',zero:true,wide:true}):''}</section></div>
+ <section class="panel chart-card full"><div class="section-heading"><h2>Цель — 10 подтягиваний</h2><span class="pill mint">Без помощи</span></div><div class="goal-number">${best??'—'} <small>/ 10</small></div><div class="pullup-track" aria-hidden="true">${Array.from({length:10},(_,i)=>`<i class="${best!==null&&i<best?'on':''}"></i>`).join('')}</div><p class="chart-note">${best===null?'Запиши результат в истории тренировки.':'Лучший подход за выбранный период.'}</p>${pullups.length?chart(grouped(pullups).map(([date,ss])=>({date,value:Math.max(...ss.map(s=>s.pullups))})),{color:'var(--mint)',unit:'повт.',zero:true,wide:true}):''}</section></div>
  <section class="history"><div class="section-heading"><h2>История тренировок</h2><small>${sessions.length} за период</small></div>${groups.length?[...groups].reverse().map(([date,ss])=>`<div class="panel day-group"><div class="day-title"><span>${dayLabel(date,true)}</span><span>${ss.length} трен. · ${ss.reduce((n,s)=>n+doneSets(s).length,0)} подх.</span></div>${[...ss].sort((a,b)=>b.finishedAt-a.finishedAt).map(s=>`<button class="history-row" data-record="${esc(s.id)}"><span class="letter">${s.program}</span><span class="desc">${PROGRAMS[s.program].name}<small>${new Date(s.startedAt).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}${s.bodyWeight!==null?' · '+fmt(s.bodyWeight)+' кг':''}</small></span><span class="count">${doneSets(s).length} подх.</span>${icon('arrow')}</button>`).join('')}</div>`).join(''):'<div class="panel empty"><h2>Здесь будет твоя история</h2><p>Заверши первую тренировку, чтобы увидеть результаты.</p><button data-go="programs">К программам</button></div>'}</section>`;
 }
 function openRecord(id){
@@ -286,7 +287,6 @@ function saveRecord(){
   const w=numericValue($(`[data-record-ex="${e.id}"][data-i="${i}"][data-kind="weight"]`).value,'weight'),r=numericValue($(`[data-record-ex="${e.id}"][data-i="${i}"][data-kind="reps"]`).value,'reps'),done=$(`[data-record-done="${e.id}"][data-i="${i}"]`).checked;
   if(w===undefined||r===undefined||(done&&(w===null||r===null))){error.textContent='У выполненных подходов должны быть вес и повторы. Вес без отягощения — 0.';return}e.sets[i]={weight:w,reps:r,done};
  }}
- if(!doneSets(s).length){error.textContent='Нужен хотя бы один выполненный подход. Или удали тренировку.';return}
  store.sessions[store.sessions.findIndex(x=>x.id===id)]=s;if(save()){$('#record').close();render();toast('Запись исправлена.');}
 }
 function updateTimer(){const s=store.active,el=$('#timer-time');if(!s||!el)return;const remaining=s.restUntil?Math.max(0,Math.ceil((s.restUntil-Date.now())/1000)):store.settings.rest;el.textContent=Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0');$('#timer-toggle').textContent=s.restUntil?(remaining?'Стоп':'Ещё раз'):'Старт'}
@@ -336,7 +336,6 @@ $('#app').addEventListener('click',event=>{
  if(b.dataset.done)return markDone(b.dataset.done,Number(b.dataset.set));
  if(b.dataset.skip){if(hasInvalid())return;const e=store.active.exercises.find(e=>e.id===b.dataset.skip);const toggle=()=>{e.skipped=!e.skipped;if(save())render()};if(!e.skipped&&e.sets.some(x=>x.done))ask('Пропустить упражнение?','Отмеченные подходы останутся в черновике, но не попадут в статистику. Можно вернуть упражнение.','Пропустить',toggle);else toggle();return}
  if(b.dataset.action==='finish')return finish();
- if(b.dataset.action==='discard'){ask('Удалить текущую тренировку?','Её подходы не попадут в историю. Завершённые тренировки сохранятся.','Удалить',()=>{store.active=null;if(save()){render();toast('Текущая тренировка удалена.')}});return}
  if(b.dataset.action==='timer'){const s=store.active;s.restUntil=s.restUntil&&s.restUntil>Date.now()?null:Date.now()+store.settings.rest*1000;if(save())updateTimer()}
  if(b.dataset.action==='timer-add'){store.active.restUntil=Math.max(Date.now(),store.active.restUntil||Date.now()+store.settings.rest*1000)+30000;if(save())updateTimer()}
 });

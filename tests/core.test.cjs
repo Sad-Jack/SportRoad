@@ -93,3 +93,13 @@ test('legacy defaults enable hyperextension only in a draft and retain completed
   assert.equal(run(`validate(${JSON.stringify(data)}).active.exercises.find(e=>e.id==='hyper').skipped`),true);
   assert.equal(run('validate(fresh()).settings.rest'),90);
 });
+
+test('a completed workout without marked sets can be restored from a backup', () => {
+  const run=runtime(),empty=structuredClone(a);
+  empty.exercises[0].sets.forEach(s=>s.done=false);
+  const data={version:1,sessions:[empty],active:null,settings:{rest:90}};
+  run(`const restored=validate(${JSON.stringify(data)})`);
+  assert.equal(run('restored.sessions.length'),1);
+  assert.equal(run('doneSets(restored.sessions[0]).length'),0);
+  assert.equal(run('grouped(restored.sessions)[0][1].length'),1);
+});
