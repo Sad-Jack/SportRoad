@@ -119,7 +119,7 @@ html::-webkit-scrollbar-corner,dialog::-webkit-scrollbar-corner{background:#c4d0
 <div class="shell">
 <header class="header">
 <div class="brand"><div class="brand-mark" id="brand-icon"></div></div>
-<nav class="nav" aria-label="Разделы"><button data-tab="programs" class="active"></button><button data-tab="workout"></button><button data-tab="analytics"></button></nav><button class="icon-button" id="settings-open" aria-label="Настройки и данные" title="Настройки и данные"></button>
+<nav class="nav" aria-label="Разделы"><button data-tab="programs" class="active"></button><button data-tab="analytics"></button></nav><button class="icon-button" id="settings-open" aria-label="Настройки и данные" title="Настройки и данные"></button>
 </header>
 <div id="storage-error" class="error-banner" role="alert" hidden></div>
 <main id="app"><p class="loading">Загружаем дневник…</p></main>
@@ -206,17 +206,16 @@ function previousSets(id){const sessions=[...store.sessions].sort((a,b)=>b.date.
 function render(){
  const settingsButton=$('#settings-open');
  $('#brand-icon').innerHTML=icon('dumbbell');settingsButton.innerHTML=icon('settings');
- const labels={programs:'Программы',workout:'Тренировка',analytics:'Аналитика'};
- document.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab===tab);b.setAttribute('aria-current',b.dataset.tab===tab?'page':'false');b.innerHTML=icon(b.dataset.tab)+labels[b.dataset.tab]+(b.dataset.tab==='workout'&&store.active?'<i class="live-dot" aria-label="Есть текущая тренировка"></i>':'')});
- $('#app').innerHTML=tab==='programs'?renderPrograms():tab==='workout'?renderWorkout():renderAnalytics();
+ const labels={programs:store.active?'Тренировка':'Программы',analytics:'Аналитика'};
+ document.querySelectorAll('[data-tab]').forEach(b=>{b.classList.toggle('active',b.dataset.tab===tab);b.setAttribute('aria-current',b.dataset.tab===tab?'page':'false');b.innerHTML=icon(b.dataset.tab==='programs'&&store.active?'workout':b.dataset.tab)+labels[b.dataset.tab]+(b.dataset.tab==='programs'&&store.active?'<i class="live-dot" aria-label="Есть текущая тренировка"></i>':'')});
+ $('#app').innerHTML=tab==='programs'?(store.active?renderWorkout():renderPrograms()):renderAnalytics();
  let pageTools=$('#app .page-title .page-tools');if(!pageTools){pageTools=document.createElement('div');pageTools.className='page-tools';$('#app .page-title').append(pageTools)}
  pageTools.append(settingsButton);updateTimer();
 }
 function switchTab(next){tab=next;render();window.scrollTo({top:0,behavior:'instant'})}
 function renderPrograms(){
- const last=lastSession(),next=nextProgram(),active=store.active;
+ const last=lastSession(),next=nextProgram();
  return `<div class="page-title programs-heading"><div><h1>Твоя программа</h1></div><div class="page-tools"><span class="pill">${dayLabel(today())}</span></div></div>
- ${active?`<div class="panel resume-banner"><div><h3>Тренировка ${active.program} в процессе</h3><p>${dayLabel(active.date)} · ${doneSets(active).length} подходов отмечено</p></div><button class="primary" data-action="resume">Продолжить</button></div>`:''}
  <div class="program-grid">${Object.entries(PROGRAMS).map(([id,p])=>{
  return `<article class="panel program ${last?.program===id?'last':''}" data-p="${id}"><div class="program-top"><div class="letter">${id}</div><div class="program-heading"><h2>${p.name}</h2>${last?.program===id?'<span class="pill mint">Прошлая</span>':id===next?'<span class="pill accent">Следующая</span>':''}</div></div><ul class="exercise-preview">${p.ex.map(k=>`<li><span>${EX[k].name}</span><small>${EX[k].n} × ${rangeText(EX[k])}</small></li>`).join('')}</ul><div class="program-bottom"><button data-start="${id}">Начать ${id} <span aria-hidden="true">→</span></button></div></article>`;
  }).join('')}</div>
@@ -225,10 +224,10 @@ function renderPrograms(){
 }
 function start(program){
  if(blocked)return toast('Сначала восстанови данные в настройках.');
- if(store.active){ask('Есть незавершённая тренировка','Заверши текущую тренировку перед тем, как начать новую.','Продолжить',()=>switchTab('workout'));return}
+ if(store.active){ask('Есть незавершённая тренировка','Заверши текущую тренировку перед тем, как начать новую.','Продолжить',()=>switchTab('programs'));return}
  const keys=[...PROGRAMS[program].ex,'abs','hyper'];
  store.active={id:uid(),program,date:today(),startedAt:Date.now(),finishedAt:null,bodyWeight:null,pullups:null,before:false,after:false,warmup:false,running:emptyRunning(),restUntil:null,exercises:keys.map(id=>{const prev=previousSets(id);return {id,skipped:false,sets:Array.from({length:EX[id].n},(_,i)=>({weight:prev[i]?.weight??prev.at(-1)?.weight??(id==='hyper'?0:null),reps:prev[i]?.reps??EX[id].min,done:false}))}})};
- if(save())switchTab('workout');
+ if(save())switchTab('programs');
 }
 function emptyRunning(){return {before:{speed:null,minutes:null},after:{speed:null,minutes:null}}}
 function runCard(s,part){
@@ -241,7 +240,7 @@ function exerciseCard(e,index,s){
 }
 function renderWorkout(){
  const s=store.active;
- if(!s)return `<div class="page-title"><div><div class="eyebrow">Один подход за другим</div><h1>Тренировка</h1></div></div><div class="panel empty"><div class="empty-icon">${icon('dumbbell')}</div><h2>Начнём?</h2><p>Выбери программу. Вес и повторы из прошлой тренировки подставятся автоматически.</p><button class="primary" data-go="programs">Выбрать программу ${icon('arrow')}</button></div>`;
+ if(!s)return renderPrograms();
  const count=doneSets(s).length,total=s.exercises.reduce((n,e)=>n+(e.skipped?0:e.sets.length),0);
  return `<div class="page-title"><div><div class="eyebrow">Тренировка ${s.program} · ${dayLabel(s.date)}</div><h1>${PROGRAMS[s.program].name}</h1></div><div class="page-tools"><button class="finish-top" data-action="finish">Завершить</button></div></div>
  <div class="work-layout"><div class="work-main">${runCard(s,'before')}${s.exercises.map((e,i)=>exerciseCard(e,i,s)).join('')}${runCard(s,'after')}<div class="finish-mobile"><button class="primary wide" data-action="finish">Завершить тренировку</button></div></div>
@@ -266,7 +265,7 @@ function finish(){
  const total=s.exercises.reduce((n,e)=>n+(e.skipped?0:e.sets.length),0);
  ask('Завершить тренировку?',`${dayLabel(s.date,true)} · ${count} из ${total} подходов. В статистику попадут только отмеченные подходы.`,'Сохранить',()=>{
   s.finishedAt=Date.now();s.restUntil=null;store.sessions.push(s);store.active=null;
-  if(save()){switchTab('analytics');toast('Тренировка сохранена. Хорошая работа.');}
+  if(save()){switchTab('programs');toast('Тренировка сохранена. Хорошая работа.');}
  });
 }
 function grouped(sessions){const map=new Map();for(const s of sessions){if(!map.has(s.date))map.set(s.date,[]);map.get(s.date).push(s)}return [...map.entries()].sort((a,b)=>a[0].localeCompare(b[0]))}
@@ -377,7 +376,6 @@ $('#app').addEventListener('click',event=>{
  if(b.dataset.go)return switchTab(b.dataset.go);
  if(b.dataset.period){period=b.dataset.period;render();return}
  if(b.dataset.record)return openRecord(b.dataset.record);
- if(b.dataset.action==='resume')return switchTab('workout');
  if(!store.active)return;
  if(b.dataset.adjust){const input=$(`[data-ex="${b.dataset.ex}"][data-set="${b.dataset.set}"][data-field="weight"]`),value=numericValue(input.value,'weight');if(value===undefined){input.setAttribute('aria-invalid','true');input.focus();return}const next=Math.max(0,Math.min(2000,Math.round(((value??0)+Number(b.dataset.adjust)*2.5)*100)/100));input.value=String(next);input.dispatchEvent(new Event('input',{bubbles:true}));return}
  if(b.dataset.done)return markDone(b.dataset.done,Number(b.dataset.set));
@@ -398,7 +396,7 @@ window.addEventListener('storage',event=>{if(event.key!==KEY&&event.key!==null)r
 let resizeTimer;window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(tab==='analytics'&&!document.querySelector('dialog[open]'))render()},150)});
 let knownDay=today();function checkDay(){if(knownDay!==today()){knownDay=today();if(!store.active&&!document.querySelector('dialog[open]'))render()}}
 setInterval(()=>{updateTimer();checkDay()},1000);document.addEventListener('visibilitychange',()=>{if(!document.hidden){updateTimer();checkDay()}});
-if(store.active)tab='workout';render();
+render();
 </script>
 </body>
 </html>
